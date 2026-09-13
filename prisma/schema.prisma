@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum AccountType {
+  CASH
+  BANK
+  WALLET
+  CREDIT_CARD
+  OTHER
+}
+
+model User {
+  id                String   @id @default(uuid())
+  name              String
+  email             String   @unique
+  passwordHash      String
+  preferredCurrency String
+
+  accounts          Account[]
+  transactions      Transaction[]
+  categories        Category[]
+  refreshTokens     RefreshToken[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  archivedAt        DateTime?
+}
+
+model RefreshToken {
+  id           String    @id @default(uuid())
+  tokenHash    String
+
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Account {
+  id              String        @id @default(uuid())
+  name            String
+  type            AccountType
+  currentBalance  Decimal       @db.Decimal(20, 4)
+  currency        String
+
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+
+  transactions    Transaction[] @relation("TransactionAccount")
+  transactionsFrom Transaction[] @relation("TransactionFromAccount")
+  transactionsTo   Transaction[] @relation("TransactionToAccount")
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  archivedAt      DateTime?
+
+  @@index([userId])
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  name          String
+  type          CategoryType
+
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+
+  transactions  Transaction[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  archivedAt    DateTime?
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Transaction {
+  id              String          @id @default(uuid())
+  type            TransactionType
+  amount          Decimal         @db.Decimal(20, 4)
+  description     String?
+  transactionDate DateTime
+
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+
+  // Used by INCOME / EXPENSE
+  accountId       String?
+  account         Account?        @relation("TransactionAccount", fields: [accountId], references: [id])
+
+  // Used by INCOME / EXPENSE
+  categoryId      String?
+  category        Category?       @relation(fields: [categoryId], references: [id])
+
+  // Used by TRANSFER
+  fromAccountId   String?
+  fromAccount     Account?        @relation("TransactionFromAccount", fields: [fromAccountId], references: [id])
+
+  // Used by TRANSFER
+  toAccountId     String?
+  toAccount       Account?        @relation("TransactionToAccount", fields: [toAccountId], references: [id])
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  archivedAt      DateTime?
+
+  @@index([userId, transactionDate])
+  @@index([categoryId])
+  @@index([accountId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+}
