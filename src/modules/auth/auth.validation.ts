@@ -1,19 +1,6 @@
 import { z } from 'zod';
 
-export const CURRENCY_CODES = [
-  'USD',
-  'EUR',
-  'GBP',
-  'JPY',
-  'CHF',
-  'CNY',
-  'CAD',
-  'AUD',
-  'INR',
-  'EGP',
-  'SAR',
-  'AED',
-] as const;
+import { CURRENCY_CODES } from '../../shared/currency';
 
 export const registerSchema = z.object({
   name: z
