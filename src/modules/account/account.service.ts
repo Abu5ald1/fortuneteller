@@ -7,6 +7,7 @@ import { prisma } from '../../config/prisma';
 import { Prisma } from '../../generated/prisma/client';
 import { TransactionType } from '../../generated/prisma/enums';
 import { AppError } from '../../middlewares/errorHandler';
+import { findOrThrow } from '../../shared/assert';
 
 export async function createAccount(userId: string, input: unknown) {
   const data = createAccountSchema.parse(input);
@@ -75,14 +76,19 @@ export async function updateAccount(userId: string, accountId: string, input: un
   // Scoping the WHERE by userId (not just id) is what makes this an
   // ownership check — a user can never touch another user's account by id,
   // and the response gives no signal either way (404 for "not found" and
-  // "not yours" alike).
+  // "not yours" alike). Once ownership is confirmed below, there's nothing
+  // left to hide, so a failed update can say exactly why.
   const updated = await prisma.account.updateMany({
     where: { id: accountId, userId, archivedAt: null },
     data: { name: data.name },
   });
 
   if (updated.count === 0) {
-    throw new AppError('Account not found', 404);
+    await findOrThrow(
+      () => prisma.account.findFirst({ where: { id: accountId, userId } }),
+      'Account not found',
+    );
+    throw new AppError('Cannot update an archived account', 409);
   }
 
   return prisma.account.findUnique({ where: { id: accountId } });
@@ -95,7 +101,11 @@ export async function archiveAccount(userId: string, accountId: string) {
   });
 
   if (archived.count === 0) {
-    throw new AppError('Account not found', 404);
+    await findOrThrow(
+      () => prisma.account.findFirst({ where: { id: accountId, userId } }),
+      'Account not found',
+    );
+    throw new AppError('Account is already archived', 409);
   }
 
   return { message: 'Account archived successfully' };
@@ -108,7 +118,11 @@ export async function restoreAccount(userId: string, accountId: string) {
   });
 
   if (restored.count === 0) {
-    throw new AppError('Account not found', 404);
+    await findOrThrow(
+      () => prisma.account.findFirst({ where: { id: accountId, userId } }),
+      'Account not found',
+    );
+    throw new AppError('Account is not archived', 409);
   }
 
   return { message: 'Account restored successfully' };
