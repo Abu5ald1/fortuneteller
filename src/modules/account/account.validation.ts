@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AccountType } from '../../generated/prisma/enums';
+import { statusFilterSchema } from '../../shared/query';
 
 export const createAccountSchema = z.object({
   name: z
@@ -27,7 +28,7 @@ export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 
 export const getAccountsQuerySchema = z
   .object({
-    status: z.enum(['active', 'archived', 'all']).default('active'),
+    status: statusFilterSchema,
     minBalance: z.coerce.number().optional(),
     maxBalance: z.coerce.number().optional(),
   })
